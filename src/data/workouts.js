@@ -1,183 +1,99 @@
-// Dados de exemplo para treinos
 export const workouts = [
+  // Treinos ABC subdivididos por grupo muscular
   {
-    id: 1,
-    name: "Treino de Peito e Tríceps",
-    level: "iniciante",
-    objective: "hipertrofia",
-    type: "academia",
-    biotipo: "mesomorfo",
-    duration: 45,
-    exercises: [
-      {
-        id: 1,
-        name: "Supino Reto",
-        sets: 3,
-        reps: "8-12",
-        rest: 90,
-        videoUrl: "https://example.com/supino-reto.mp4"
-      },
-      {
-        id: 2,
-        name: "Supino Inclinado",
-        sets: 3,
-        reps: "8-12",
-        rest: 90,
-        videoUrl: "https://example.com/supino-inclinado.mp4"
-      },
-      {
-        id: 3,
-        name: "Crucifixo",
-        sets: 3,
-        reps: "10-15",
-        rest: 60,
-        videoUrl: "https://example.com/crucifixo.mp4"
-      },
-      {
-        id: 4,
-        name: "Tríceps Testa",
-        sets: 3,
-        reps: "10-15",
-        rest: 60,
-        videoUrl: "https://example.com/triceps-testa.mp4"
-      }
-    ]
-  },
-  {
-    id: 2,
-    name: "Treino de Costas e Bíceps",
-    level: "iniciante",
-    objective: "hipertrofia",
-    type: "academia",
-    biotipo: "mesomorfo",
+    id: 'abc-a',
+    name: 'Treino A - Peito e Tríceps',
+    level: 'iniciante',
+    objective: 'hipertrofia',
+    type: 'academia',
+    biotipo: 'mesomorfo',
     duration: 50,
     exercises: [
-      {
-        id: 5,
-        name: "Puxada Frontal",
-        sets: 3,
-        reps: "8-12",
-        rest: 90,
-        videoUrl: "https://example.com/puxada-frontal.mp4"
-      },
-      {
-        id: 6,
-        name: "Remada Curvada",
-        sets: 3,
-        reps: "8-12",
-        rest: 90,
-        videoUrl: "https://example.com/remada-curvada.mp4"
-      },
-      {
-        id: 7,
-        name: "Rosca Direta",
-        sets: 3,
-        reps: "10-15",
-        rest: 60,
-        videoUrl: "https://example.com/rosca-direta.mp4"
-      },
-      {
-        id: 8,
-        name: "Rosca Martelo",
-        sets: 3,
-        reps: "10-15",
-        rest: 60,
-        videoUrl: "https://example.com/rosca-martelo.mp4"
-      }
-    ]
+      { id: 'ex-1', name: 'Supino reto com barra', sets: 4, reps: '8-12', rest: 60, muscleGroup: 'Peito' },
+      { id: 'ex-2', name: 'Supino inclinado com halteres', sets: 3, reps: '10-12', rest: 60, muscleGroup: 'Peito' },
+      { id: 'ex-3', name: 'Crucifixo no cabo (crossover)', sets: 3, reps: '12-15', rest: 60, muscleGroup: 'Peito' },
+      { id: 'ex-4', name: 'Tríceps pulley (corda)', sets: 3, reps: '10-12', rest: 60, muscleGroup: 'Tríceps' },
+      { id: 'ex-5', name: 'Tríceps testa com barra EZ', sets: 3, reps: '10-12', rest: 60, muscleGroup: 'Tríceps' },
+      { id: 'ex-6', name: 'Mergulho em paralelas', sets: 3, reps: '10-12', rest: 60, muscleGroup: 'Tríceps' },
+    ],
   },
   {
-    id: 3,
-    name: "Treino de Pernas",
-    level: "iniciante",
-    objective: "hipertrofia",
-    type: "academia",
-    biotipo: "mesomorfo",
-    duration: 60,
+    id: 'abc-b',
+    name: 'Treino B - Costas e Bíceps',
+    level: 'iniciante',
+    objective: 'hipertrofia',
+    type: 'academia',
+    biotipo: 'mesomorfo',
+    duration: 50,
     exercises: [
-      {
-        id: 9,
-        name: "Agachamento",
-        sets: 4,
-        reps: "8-12",
-        rest: 120,
-        videoUrl: "https://example.com/agachamento.mp4"
-      },
-      {
-        id: 10,
-        name: "Leg Press",
-        sets: 3,
-        reps: "12-15",
-        rest: 90,
-        videoUrl: "https://example.com/leg-press.mp4"
-      },
-      {
-        id: 11,
-        name: "Extensora",
-        sets: 3,
-        reps: "12-15",
-        rest: 60,
-        videoUrl: "https://example.com/extensora.mp4"
-      },
-      {
-        id: 12,
-        name: "Flexora",
-        sets: 3,
-        reps: "12-15",
-        rest: 60,
-        videoUrl: "https://example.com/flexora.mp4"
-      }
-    ]
+      { id: 'ex-7', name: 'Barra fixa (ou pulldown)', sets: 4, reps: '8-12', rest: 60, muscleGroup: 'Costas' },
+      { id: 'ex-8', name: 'Remada curvada com barra', sets: 4, reps: '8-12', rest: 60, muscleGroup: 'Costas' },
+      { id: 'ex-9', name: 'Remada baixa no cabo', sets: 3, reps: '10-12', rest: 60, muscleGroup: 'Costas' },
+      { id: 'ex-10', name: 'Puxada frontal no pulley', sets: 3, reps: '10-12', rest: 60, muscleGroup: 'Costas' },
+      { id: 'ex-11', name: 'Rosca direta com barra EZ', sets: 3, reps: '10-12', rest: 60, muscleGroup: 'Bíceps' },
+      { id: 'ex-12', name: 'Rosca martelo com halteres', sets: 3, reps: '10-12', rest: 60, muscleGroup: 'Bíceps' },
+    ],
   },
   {
-    id: 4,
-    name: "Treino em Casa - Peso Corporal",
-    level: "iniciante",
-    objective: "emagrecimento",
-    type: "casa",
-    biotipo: "endomorfo",
+    id: 'abc-c',
+    name: 'Treino C - Pernas e Ombros',
+    level: 'iniciante',
+    objective: 'hipertrofia',
+    type: 'academia',
+    biotipo: 'mesomorfo',
+    duration: 50,
+    exercises: [
+      { id: 'ex-13', name: 'Agachamento livre', sets: 4, reps: '8-12', rest: 60, muscleGroup: 'Pernas' },
+      { id: 'ex-14', name: 'Leg press', sets: 4, reps: '10-12', rest: 60, muscleGroup: 'Pernas' },
+      { id: 'ex-15', name: 'Afundo com halteres', sets: 3, reps: '10-12 por perna', rest: 60, muscleGroup: 'Pernas' },
+      { id: 'ex-16', name: 'Desenvolvimento militar com barra', sets: 4, reps: '8-12', rest: 60, muscleGroup: 'Ombros' },
+      { id: 'ex-17', name: 'Elevação lateral com halteres', sets: 3, reps: '10-12', rest: 60, muscleGroup: 'Ombros' },
+      { id: 'ex-18', name: 'Elevação frontal com halteres', sets: 3, reps: '10-12', rest: 60, muscleGroup: 'Ombros' },
+    ],
+  },
+
+  // Treinos HIIT
+
+  {
+    id: 'hiit-1',
+    name: 'Treino HIIT - Iniciante',
+    level: 'iniciante',
+    objective: 'emagrecimento',
+    type: 'casa',
+    biotipo: 'mesomorfo',
+    duration: 20,
+    exercises: [
+      { id: 'ex-hiit-1', name: 'Polichinelo', sets: 6, reps: '30s', rest: 20, muscleGroup: 'Cardio' },
+      { id: 'ex-hiit-2', name: 'Agachamento com Salto', sets: 6, reps: '30s', rest: 20, muscleGroup: 'Pernas' },
+      { id: 'ex-hiit-3', name: 'Corrida no Lugar', sets: 6, reps: '30s', rest: 20, muscleGroup: 'Cardio' },
+    ],
+  },
+  {
+    id: 'hiit-2',
+    name: 'Treino HIIT - Intermediário',
+    level: 'intermediario',
+    objective: 'emagrecimento',
+    type: 'academia',
+    biotipo: 'endomorfo',
+    duration: 25,
+    exercises: [
+      { id: 'ex-hiit-4', name: 'Burpee', sets: 8, reps: '40s', rest: 15, muscleGroup: 'Cardio' },
+      { id: 'ex-hiit-5', name: 'Mountain Climbers', sets: 8, reps: '40s', rest: 15, muscleGroup: 'Cardio' },
+      { id: 'ex-hiit-6', name: 'Jumping Lunges', sets: 8, reps: '40s', rest: 15, muscleGroup: 'Pernas' },
+    ],
+  },
+  {
+    id: 'hiit-3',
+    name: 'Treino HIIT - Avançado',
+    level: 'avancado',
+    objective: 'emagrecimento',
+    type: 'casa',
+    biotipo: 'ectomorfo',
     duration: 30,
     exercises: [
-      {
-        id: 13,
-        name: "Flexão de Braço",
-        sets: 3,
-        reps: "8-15",
-        rest: 60,
-        videoUrl: "https://example.com/flexao.mp4"
-      },
-      {
-        id: 14,
-        name: "Agachamento Livre",
-        sets: 3,
-        reps: "15-20",
-        rest: 60,
-        videoUrl: "https://example.com/agachamento-livre.mp4"
-      },
-      {
-        id: 15,
-        name: "Prancha",
-        sets: 3,
-        reps: "30-60s",
-        rest: 60,
-        videoUrl: "https://example.com/prancha.mp4"
-      },
-      {
-        id: 16,
-        name: "Burpee",
-        sets: 3,
-        reps: "5-10",
-        rest: 90,
-        videoUrl: "https://example.com/burpee.mp4"
-      }
-    ]
-  }
+      { id: 'ex-hiit-7', name: 'Sprint no Lugar', sets: 10, reps: '45s', rest: 10, muscleGroup: 'Cardio' },
+      { id: 'ex-hiit-8', name: 'Saltos Laterais', sets: 10, reps: '45s', rest: 10, muscleGroup: 'Cardio' },
+      { id: 'ex-hiit-9', name: 'Abdominais Bicicleta', sets: 10, reps: '45s', rest: 10, muscleGroup: 'Abdômen' },
+    ],
+  },
 ];
-
-export const workoutFilters = {
-  levels: ["iniciante", "intermediário", "avançado"],
-  objectives: ["hipertrofia", "definição", "emagrecimento"],
-  types: ["casa", "academia", "peso corporal"],
-  biotypes: ["ectomorfo", "mesomorfo", "endomorfo"]
-};
-

@@ -1,202 +1,274 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  FireIcon, 
-  CakeIcon, 
-  BeakerIcon,
-  PlayIcon,
-  EyeIcon
-} from '@heroicons/react/24/outline';
-import Card from '../components/UI/Card';
-import Button from '../components/UI/Button';
-import ProgressRing from '../components/UI/ProgressRing';
+import React, { useState, useEffect, useRef } from 'react';
+import { PlayIcon, EyeIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
+import { Button } from '../components/ui/button.jsx';
+import ProgressRing from '../components/ui/ProgressRing';
 import { MOTIVATIONAL_QUOTES } from '../utils/constants';
+import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
+import { Trophy, Utensils, Droplets } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import Profile from './Profile';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../services/firebase.js';
+import { useIsMobile } from '../hooks/use-mobile';
+import { handleWorkoutCompleted, handleWeightUpdate } from '../utils/profileActions';
+import BottomNavigation from '../components/Navigation/BottomNavigation'
 
 const Dashboard = () => {
+  const { currentUser, userProfile, setUserProfile  } = useAuth();
+  const isMobile = useIsMobile();
+  const workoutHandledTodayRef = useRef(false);
   const [currentQuote, setCurrentQuote] = useState('');
-  const [waterIntake, setWaterIntake] = useState(1200); // ml
+  const [waterIntake, setWaterIntake] = useState(0); // ml
+  const [showProfile, setShowProfile] = useState(false);
   const [dailyGoals, setDailyGoals] = useState({
     workout: false,
-    meals: 3,
-    mealsCompleted: 1
+    meals: 6,
+    mealsCompleted: 0
   });
 
+  // Citação motivacional
   useEffect(() => {
-    // Seleciona uma frase motivacional aleatória
-    const randomQuote = MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
+    const randomQuote =
+      MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
     setCurrentQuote(randomQuote);
   }, []);
 
+  // Hidratação
   const waterProgress = (waterIntake / 2500) * 100;
-  const mealProgress = (dailyGoals.mealsCompleted / dailyGoals.meals) * 100;
 
   const addWater = (amount) => {
-    setWaterIntake(prev => Math.min(prev + amount, 2500));
+    setWaterIntake((prev) => Math.min(prev + amount, 2500));
   };
 
-  const markMealCompleted = () => {
-    setDailyGoals(prev => ({
-      ...prev,
-      mealsCompleted: Math.min(prev.mealsCompleted + 1, prev.meals)
-    }));
+  // Scroll bloqueado ao abrir o painel
+  useEffect(() => {
+    document.body.style.overflow = showProfile ? 'hidden' : '';
+  }, [showProfile]);
+
+  // 🔁 Firestore listeners para workoutHistory e mealHistory
+  useEffect(() => {
+  if (!userProfile?.uid) return;
+
+  const today = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+
+  workoutHandledTodayRef.current = false;
+
+  // Listener para workoutHistory
+  const workoutRef = doc(db, 'workoutHistory', userProfile.uid, 'dates', today);
+  const unsubscribeWorkout = onSnapshot(workoutRef, (docSnap) => {
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      const workoutCompleted = data.completedWorkouts && Array.isArray(data.completedWorkouts) && data.completedWorkouts.length > 0;
+
+      setDailyGoals(prev => ({
+        ...prev,
+        workout: workoutCompleted
+      }));
+
+      if (
+        workoutCompleted &&
+        !workoutHandledTodayRef.current &&
+        userProfile.lastWorkoutDate !== today
+      ) {
+        workoutHandledTodayRef.current = true;
+
+        // Atualiza o campo local temporariamente para evitar loop
+        setUserProfile(prev => ({
+          ...prev,
+          lastWorkoutDate: today,
+          workoutsCompleted: (prev.workoutsCompleted || 0) + 1
+        }));
+
+        handleWorkoutCompleted(currentUser, userProfile, setUserProfile);
+      }
+
+            console.log('Workout status updated:', workoutCompleted, data);
+          } else {
+            setDailyGoals(prev => ({ ...prev, workout: false }));
+            workoutHandledTodayRef.current = false;
+            console.log('No workout document found for today');
+          }
+        });
+
+  // Listener para mealHistory
+  const mealRef = doc(db, 'mealHistory', userProfile.uid, 'dates', today);
+  const unsubscribeMeal = onSnapshot(mealRef, (docSnap) => {
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      const mealsCompleted = data.completedMeals && Array.isArray(data.completedMeals) ? data.completedMeals.length : 0;
+
+      setDailyGoals(prev => ({
+        ...prev,
+        mealsCompleted: mealsCompleted
+      }));
+
+      console.log('Meals status updated:', mealsCompleted, data);
+    } else {
+      setDailyGoals(prev => ({
+        ...prev,
+        mealsCompleted: 0
+      }));
+
+      console.log('No meal document found for today');
+    }
+  });
+
+  // Cleanup dos dois listeners quando o efeito desmontar ou userProfile mudar
+  return () => {
+    unsubscribeWorkout();
+    unsubscribeMeal();
   };
+}, [userProfile?.uid]);
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white p-6 rounded-b-3xl">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-bold">BLDR</h1>
-            <p className="text-gray-300">Construa seu melhor eu</p>
+    <div className="min-h-screen bg-gray-50 pb-20 relative z-0">
+      {/* Painel lateral do perfil */}
+      <div
+        className={`fixed inset-0 z-50 flex justify-end transition-opacity duration-300 ${
+          showProfile ? 'bg-black/60 bg-opacity-50' : 'pointer-events-none opacity-0'
+        }`}
+        onClick={() => setShowProfile(false)}
+      >
+        <div
+          className={`transform transition-transform duration-300 ease-in-out bg-white w-full max-w-md h-full shadow-lg p-6 overflow-y-auto ${
+            showProfile ? 'translate-x-0' : 'translate-x-full'
+          }`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex justify-between items-center mb-4">
+            <button
+              onClick={() => setShowProfile(false)}
+              className="text-gray-600 hover:text-black text-xl"
+            >
+              ✕
+            </button>
           </div>
-          <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center">
-            <span className="text-gray-900 font-bold text-lg">U</span>
+          <Profile />
+        </div>
+      </div>
+
+      {/* Header */}
+      <div className="bg-black text-yellow-400 p-6 rounded-b-3xl relative z-10">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowProfile(true);
+          }}
+          className="absolute top-6 right-6 text-yellow-300 hover:text-yellow-500 transition focus:outline-none z-20"
+        >
+          <Cog6ToothIcon className="w-6 h-6" />
+        </button>
+
+        <div className="relative flex justify-center items-center mb-4">
+          <div className="text-center">
+          <img
+              src='/images/BLDR_CLEAN_BGLESS.png'
+              alt="Logo BLDR"
+              className="w-32 sm:w-40 md:w-56 lg:w-72 mx-auto -mt-12 sm:-mt-16 md:-mt-20 -mb-8"
+            />
+            <p className="text-gray-300 font-montserrat">Construa sua melhor versão</p>
           </div>
         </div>
-        
-        {/* Frase motivacional */}
+
         <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 mt-4">
-          <p className="text-center text-yellow-300 font-medium italic">
-            "{currentQuote}"
-          </p>
+          <p className="text-center text-yellow-300 font-medium italic">"{currentQuote}"</p>
         </div>
       </div>
 
       <div className="p-4 space-y-6">
         {/* Resumo do dia */}
-        <Card>
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Resumo do Dia</h2>
-          
-          <div className="grid grid-cols-3 gap-4">
-            {/* Treino */}
-            <div className="text-center">
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-2 ${
-                dailyGoals.workout ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'
-              }`}>
-                <FireIcon className="w-6 h-6" />
+        <div className="grid grid-cols-2 gap-4">
+          <Card className="card-glass">
+            <CardContent className="p-4 text-center">
+              <div className="flex flex-col items-center space-y-2">
+                <Trophy className="text-primary" size={24} />
+                <span className="text-sm font-montserrat text-muted-foreground">Treino</span>
+                <span
+                  className={`text-lg font-montserrat-bold ${
+                    dailyGoals.workout ? 'text-green-600' : 'text-destructive'
+                  }`}
+                >
+                  {dailyGoals.workout ? 'Concluído' : 'Pendente'}
+                </span>
               </div>
-              <p className="text-xs text-gray-600">Treino</p>
-              <p className={`text-sm font-semibold ${
-                dailyGoals.workout ? 'text-green-600' : 'text-gray-400'
-              }`}>
-                {dailyGoals.workout ? 'Concluído' : 'Pendente'}
-              </p>
-            </div>
+            </CardContent>
+          </Card>
 
-            {/* Refeições */}
-            <div className="text-center">
-              <ProgressRing 
-                progress={mealProgress} 
-                size={48} 
-                strokeWidth={4}
-                color="#10b981"
-              >
-                <CakeIcon className="w-5 h-5 text-green-600" />
-              </ProgressRing>
-              <p className="text-xs text-gray-600 mt-2">Refeições</p>
-              <p className="text-sm font-semibold text-gray-900">
-                {dailyGoals.mealsCompleted}/{dailyGoals.meals}
-              </p>
-            </div>
-
-            {/* Hidratação */}
-            <div className="text-center">
-              <ProgressRing 
-                progress={waterProgress} 
-                size={48} 
-                strokeWidth={4}
-                color="#3b82f6"
-              >
-                <BeakerIcon className="w-5 h-5 text-blue-600" />
-              </ProgressRing>
-              <p className="text-xs text-gray-600 mt-2">Água</p>
-              <p className="text-sm font-semibold text-gray-900">
-                {waterIntake}ml
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        {/* Ações rápidas */}
-        <Card>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Ações Rápidas</h3>
-          
-          <div className="space-y-3">
-            <Button 
-              variant="primary" 
-              className="w-full"
-              icon={PlayIcon}
-              onClick={() => setDailyGoals(prev => ({ ...prev, workout: true }))}
-            >
-              Começar Treino
-            </Button>
-            
-            <Button 
-              variant="outline" 
-              className="w-full"
-              icon={EyeIcon}
-            >
-              Ver Dieta do Dia
-            </Button>
-          </div>
-        </Card>
+          <Card className="card-glass">
+            <CardContent className="p-4 text-center">
+              <div className="flex flex-col items-center space-y-2">
+                <Utensils className="text-primary" size={24} />
+                <span className="text-sm font-montserrat text-muted-foreground">Refeições</span>
+                <span className="text-lg font-montserrat-bold text-primary">
+                  {dailyGoals.mealsCompleted}/{dailyGoals.meals}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Hidratação */}
-        <Card>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Hidratação</h3>
-            <ProgressRing 
-              progress={waterProgress} 
-              size={60} 
-              strokeWidth={6}
-              color="#3b82f6"
-            >
-              <span className="text-xs font-bold text-blue-600">
-                {Math.round(waterProgress)}%
-              </span>
-            </ProgressRing>
-          </div>
-          
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-gray-600">{waterIntake}ml / 2500ml</span>
-            <span className="text-sm text-gray-500">Meta diária</span>
-          </div>
-          
-          <div className="flex gap-2">
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => addWater(250)}
-              className="flex-1"
-            >
-              +250ml
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => addWater(500)}
-              className="flex-1"
-            >
-              +500ml
-            </Button>
-          </div>
+        <Card className="card-glass">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 font-montserrat">
+              <Droplets className="text-primary" size={20} />
+              Hidratação
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col items-center space-y-4">
+              <ProgressRing progress={waterProgress} size={100} strokeWidth={8} color="#3b82f6">
+                <span className="text-lg font-bold text-blue-600">
+                  {Math.round(waterProgress)}%
+                </span>
+              </ProgressRing>
+
+              <div className="flex items-center justify-between w-full max-w-xs">
+                <span className="text-gray-600">{waterIntake}ml / 2500ml</span>
+                <span className="text-sm text-gray-500">Meta diária</span>
+              </div>
+
+              <div className="flex gap-2 w-full max-w-xs">
+                <Button variant="ghost" size="sm" onClick={() => addWater(250)} className="flex-1">
+                  +250ml
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => addWater(500)} className="flex-1">
+                  +500ml
+                </Button>
+              </div>
+            </div>
+          </CardContent>
         </Card>
 
-        {/* Progresso semanal */}
-        <Card>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Esta Semana</h3>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <p className="text-2xl font-bold text-gray-900">4</p>
-              <p className="text-sm text-gray-600">Treinos</p>
-            </div>
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
-              <p className="text-2xl font-bold text-gray-900">85%</p>
-              <p className="text-sm text-gray-600">Consistência</p>
-            </div>
-          </div>
-        </Card>
+        {/* Stats rápidas */}
+        <div className="grid grid-cols-3 gap-3">
+          <Card className="card-glass">
+            <CardContent className="p-3 text-center">
+              <div className="text-2xl font-montserrat-bold text-primary">
+                {userProfile?.workoutsCompleted || 0}
+              </div>
+              <div className="text-xs text-muted-foreground font-montserrat">Treinos</div>
+            </CardContent>
+          </Card>
+
+          <Card className="card-glass">
+            <CardContent className="p-3 text-center">
+              <div className="text-2xl font-montserrat-bold text-primary">
+                -{userProfile?.weightLost || 0}kg
+              </div>
+              <div className="text-xs text-muted-foreground font-montserrat">Este mês</div>
+            </CardContent>
+          </Card>
+
+          <Card className="card-glass">
+            <CardContent className="p-3 text-center">
+              <div className="text-2xl font-montserrat-bold text-primary">
+                {userProfile?.currentStreak || 0}
+              </div>
+              <div className="text-xs text-muted-foreground font-montserrat">Sequência</div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

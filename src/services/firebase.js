@@ -1,61 +1,86 @@
-// Configuração do Firebase
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import {
+  getAuth,
+  GoogleAuthProvider,
+  signInWithPopup,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  updateProfile,
+} from 'firebase/auth';
 
-// Configuração do Firebase (substitua pelas suas credenciais)
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  serverTimestamp,
+  increment,
+} from 'firebase/firestore';
+
+import {
+  getStorage,
+  ref,
+  uploadBytes,
+  getDownloadURL,
+} from 'firebase/storage';
+
 const firebaseConfig = {
-  apiKey: "your-api-key",
-  authDomain: "your-project.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "your-app-id"
+  apiKey: 'AIzaSyBGBsBh9iFF20VlmPm65XL3gEs0bJ60NA0',
+  authDomain: 'bldr-fitness-app.firebaseapp.com',
+  projectId: 'bldr-fitness-app',
+  storageBucket: 'bldr-fitness-app.firebasestorage.app',
+  messagingSenderId: '896720103850',
+  appId: '1:896720103850:web:f57925474a52b9f21be3d3',
 };
 
-// Inicializar Firebase
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+export const provider = new GoogleAuthProvider();
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
-// Providers
-const googleProvider = new GoogleAuthProvider();
-
-// Funções de autenticação
-export const signInWithGoogle = async () => {
+// ========== AUTENTICAÇÃO ==========
+export const loginWithEmail = async (email, password) => {
   try {
-    const result = await signInWithPopup(auth, googleProvider);
-    const user = result.user;
-    
-    // Criar perfil do usuário no Firestore se não existir
-    await createUserProfile(user);
-    
-    return { success: true, user };
+    await signInWithEmailAndPassword(auth, email, password);
+    return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
   }
 };
 
-export const signInWithEmail = async (email, password) => {
+export const registerWithEmail = async (email, password, additionalData = {}) => {
   try {
-    const result = await signInWithEmailAndPassword(auth, email, password);
-    return { success: true, user: result.user };
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    if (additionalData.name) {
+      await updateProfile(user, { displayName: additionalData.name });
+    }
+
+    // Cria o perfil no Firestore com dados adicionais, como nome
+    await setDoc(doc(db, 'users', user.uid), {
+      uid: user.uid,
+      email,
+      displayName: additionalData.name,
+      createdAt: serverTimestamp(),
+      isPremium: false,
+      ...additionalData,
+    });
+
+    return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
   }
 };
 
-export const signUpWithEmail = async (email, password, userData) => {
+export const loginWithGoogle = async () => {
   try {
-    const result = await createUserWithEmailAndPassword(auth, email, password);
-    const user = result.user;
-    
-    // Criar perfil do usuário no Firestore
-    await createUserProfile(user, userData);
-    
-    return { success: true, user };
+    await signInWithPopup(auth, provider);
+    return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -70,98 +95,79 @@ export const logout = async () => {
   }
 };
 
-// Funções do Firestore
-export const createUserProfile = async (user, additionalData = {}) => {
-  if (!user) return;
-  
-  const userRef = doc(db, 'users', user.uid);
-  const userSnap = await getDoc(userRef);
-  
-  if (!userSnap.exists()) {
-    const { displayName, email, photoURL } = user;
-    const createdAt = new Date();
-    
-    try {
-      await setDoc(userRef, {
-        displayName: displayName || additionalData.name || '',
-        email,
-        photoURL: photoURL || '',
-        createdAt,
-        // Dados do perfil fitness
-        age: additionalData.age || null,
-        weight: additionalData.weight || null,
-        height: additionalData.height || null,
-        fitnessGoal: additionalData.fitnessGoal || '',
-        activityLevel: additionalData.activityLevel || '',
-        biotipo: additionalData.biotipo || '',
-        // Progresso
-        workoutsCompleted: 0,
-        currentStreak: 0,
-        totalXP: 0,
-        unlockedAchievements: [],
-        progressPhotos: [],
-        // Configurações
-        notifications: {
-          workoutReminders: true,
-          mealReminders: true,
-          waterReminders: true
-        },
-        ...additionalData
-      });
-    } catch (error) {
-      console.error('Erro ao criar perfil do usuário:', error);
-    }
-  }
-  
-  return userRef;
-};
-
-export const getUserProfile = async (userId) => {
-  try {
-    const userRef = doc(db, 'users', userId);
-    const userSnap = await getDoc(userRef);
-    
-    if (userSnap.exists()) {
-      return { success: true, data: userSnap.data() };
-    } else {
-      return { success: false, error: 'Usuário não encontrado' };
-    }
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-};
-
-export const updateUserProfile = async (userId, data) => {
-  try {
-    const userRef = doc(db, 'users', userId);
-    await updateDoc(userRef, {
-      ...data,
-      updatedAt: new Date()
-    });
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-};
-
-// Upload de imagens
-export const uploadProgressPhoto = async (userId, file) => {
-  try {
-    const timestamp = Date.now();
-    const fileName = `progress_photos/${userId}/${timestamp}_${file.name}`;
-    const storageRef = ref(storage, fileName);
-    
-    const snapshot = await uploadBytes(storageRef, file);
-    const downloadURL = await getDownloadURL(snapshot.ref);
-    
-    return { success: true, url: downloadURL };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-};
-
-// Observer de autenticação
-export const onAuthStateChange = (callback) => {
+// Wrapper para facilitar o uso do onAuthStateChanged no AuthContext
+export const onAuthStateChangedListener = (callback) => {
   return onAuthStateChanged(auth, callback);
 };
 
+// ========== PERFIL ==========
+export const getUserProfile = async (userId) => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const docSnap = await getDoc(userRef);
+    return docSnap.exists() ? docSnap.data() : null;
+  } catch (error) {
+    console.error('Erro ao buscar perfil:', error);
+    return null;
+  }
+};
+
+// Atualizar perfil com log para depuração
+export const updateUserProfile = async (userId, data) => {
+  try {
+    console.log('🔁 Atualizando perfil:', userId, data);
+    const userRef = doc(db, 'users', userId);
+    // Força tipo booleano para isPremium, se existir
+    if ('isPremium' in data) {
+      data.isPremium = Boolean(data.isPremium);
+    }
+    await updateDoc(userRef, sanitizeData(data));
+  } catch (error) {
+    console.error('Erro ao atualizar perfil:', error);
+  }
+};
+
+// Criar perfil corrigido (espera o objeto user do Firebase Auth)
+export const createUserProfile = async (user) => {
+  try {
+    const userRef = doc(db, 'users', user.uid);
+    await setDoc(userRef, {
+      uid: user.uid,
+      email: user.email,
+      createdAt: serverTimestamp(),
+      isPremium: false,
+      // Você pode adicionar outros campos padrão aqui, se quiser
+    });
+    return { success: true };
+  } catch (error) {
+    console.error('Erro ao criar perfil:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// ========== UPLOAD ==========
+export const uploadProgressPhoto = async (userId, file) => {
+  const fileRef = ref(storage, `progress/${userId}/${file.name}`);
+  await uploadBytes(fileRef, file);
+  return getDownloadURL(fileRef);
+};
+
+// ========== XP & LEVEL ==========
+export const addXPToUser = async (userId, amount) => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
+      xp: increment(amount),
+    });
+  } catch (error) {
+    console.error('Erro ao adicionar XP:', error);
+  }
+};
+
+// ========== UTIL ==========
+const sanitizeData = (data) =>
+  Object.fromEntries(
+    Object.entries(data).filter(
+      ([_, value]) => value !== undefined && value !== null
+    )
+  );

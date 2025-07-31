@@ -1,15 +1,19 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { onAuthStateChange, getUserProfile } from '../services/firebase';
+import React, { createContext, useState, useEffect, useContext } from 'react';
+import {
+  loginWithEmail,
+  registerWithEmail,
+  loginWithGoogle,
+  getUserProfile,
+  updateUserProfile,
+  createUserProfile,
+  logout as firebaseLogout,
+  onAuthStateChangedListener,
+} from '../services/firebase';
+
+import { auth, db } from '../services/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 const AuthContext = createContext();
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth deve ser usado dentro de um AuthProvider');
-  }
-  return context;
-};
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
@@ -17,38 +21,53 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChange(async (user) => {
+    let unsubscribeProfile = null;
+
+    const unsubscribeAuth = onAuthStateChangedListener(async (user) => {
       setCurrentUser(user);
-      
+
       if (user) {
-        // Buscar perfil do usuário
-        const profileResult = await getUserProfile(user.uid);
-        if (profileResult.success) {
-          setUserProfile(profileResult.data);
-        }
+        const userDocRef = doc(db, 'users', user.uid);
+
+        unsubscribeProfile = onSnapshot(userDocRef, async (docSnap) => {
+          if (docSnap.exists()) {
+            console.log("📦 Firestore userProfile update:", docSnap.data());
+            setUserProfile(docSnap.data());
+          } else {
+            console.log("⚠️ Perfil não encontrado. Criando novo perfil...");
+            await createUserProfile(user); // 🔥 Cria o perfil se não existir
+          }
+        });
       } else {
+        if (unsubscribeProfile) unsubscribeProfile();
         setUserProfile(null);
       }
-      
+
       setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      if (unsubscribeProfile) unsubscribeProfile();
+      unsubscribeAuth();
+    };
   }, []);
 
-  const updateProfile = (newProfileData) => {
-    setUserProfile(prev => ({
-      ...prev,
-      ...newProfileData
-    }));
+  const logout = async () => {
+    await firebaseLogout();
+    setCurrentUser(null);
+    setUserProfile(null);
   };
 
   const value = {
     currentUser,
     userProfile,
-    loading,
-    updateProfile,
-    isAuthenticated: !!currentUser
+    setUserProfile,
+    loginWithEmail,
+    register: registerWithEmail,
+    loginWithGoogle,
+    createUserProfile,
+    updateUserProfile,
+    logout,
   };
 
   return (
@@ -58,3 +77,5 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
+export const useAuth = () => useContext(AuthContext);
+export { AuthContext };

@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  PlayIcon, 
-  PauseIcon, 
-  ForwardIcon, 
+import {
+  PlayIcon,
+  PauseIcon,
+  ForwardIcon,
   BackwardIcon,
   CheckCircleIcon,
   XMarkIcon
 } from '@heroicons/react/24/outline';
-import Card from '../UI/Card';
-import Button from '../UI/Button';
-import ProgressRing from '../UI/ProgressRing';
+import { Card } from '../ui/card';
+import { Button } from '../ui/button';
+import ProgressRing from '../ui/ProgressRing';
 
 const WorkoutPlayer = ({ workout, onClose, onComplete }) => {
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
@@ -23,6 +23,22 @@ const WorkoutPlayer = ({ workout, onClose, onComplete }) => {
   const totalExercises = workout.exercises.length;
   const progress = ((currentExerciseIndex + 1) / totalExercises) * 100;
 
+  // Detecta se o treino é HIIT (objetivo "emagrecimento") para ajustar comportamento
+  const isHIIT = workout.objective === 'emagrecimento';
+
+  // Para HIIT, reps vem em segundos (ex: "30s"), então convertemos para número para usar timer
+  const parseRepsTime = (reps) => {
+    if (!reps) return 0;
+    if (typeof reps === 'string' && reps.endsWith('s')) {
+      const num = parseInt(reps.replace('s', ''), 10);
+      return isNaN(num) ? 0 : num;
+    }
+    return 0;
+  };
+
+  // Duração do tempo ativo (repouso entre reps no HIIT não usado aqui)
+  const activeTime = isHIIT ? parseRepsTime(currentExercise.reps) : 0;
+
   useEffect(() => {
     let interval;
     if (isPlaying && timeRemaining > 0) {
@@ -32,7 +48,10 @@ const WorkoutPlayer = ({ workout, onClose, onComplete }) => {
             setIsPlaying(false);
             if (isResting) {
               setIsResting(false);
-              setCurrentSet(prev => prev + 1);
+              // Para ABC, incrementa série; para HIIT, só avança (geralmente uma série é 1 ciclo no HIIT)
+              if (!isHIIT) {
+                setCurrentSet(prevSet => prevSet + 1);
+              }
             }
             return 0;
           }
@@ -41,7 +60,7 @@ const WorkoutPlayer = ({ workout, onClose, onComplete }) => {
       }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isPlaying, timeRemaining, isResting]);
+  }, [isPlaying, timeRemaining, isResting, isHIIT]);
 
   const startTimer = (seconds) => {
     setTimeRemaining(seconds);
@@ -60,7 +79,6 @@ const WorkoutPlayer = ({ workout, onClose, onComplete }) => {
       setIsPlaying(false);
       setTimeRemaining(0);
     } else {
-      // Treino concluído
       onComplete();
     }
   };
@@ -78,19 +96,19 @@ const WorkoutPlayer = ({ workout, onClose, onComplete }) => {
   const completeSet = () => {
     const exerciseId = currentExercise.id;
     const setKey = `${exerciseId}-${currentSet}`;
-    
-    setCompletedSets(prev => ({
-      ...prev,
-      [setKey]: true
-    }));
+    setCompletedSets(prev => ({ ...prev, [setKey]: true }));
 
-    if (currentSet < currentExercise.sets) {
-      // Iniciar descanso
-      setIsResting(true);
-      startTimer(currentExercise.rest);
-    } else {
-      // Exercício concluído, próximo exercício
+    if (isHIIT) {
+      // No HIIT, a "série" é o tempo do exercício; vai direto para próximo exercício
       nextExercise();
+    } else {
+      // ABC: se ainda tem séries, inicia descanso; senão, vai pro próximo exercício
+      if (currentSet < currentExercise.sets) {
+        setIsResting(true);
+        startTimer(currentExercise.rest);
+      } else {
+        nextExercise();
+      }
     }
   };
 
@@ -106,93 +124,86 @@ const WorkoutPlayer = ({ workout, onClose, onComplete }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl shadow-lg w-full max-w-xl max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b">
-          <div className="flex-1">
-            <h2 className="text-lg font-bold text-gray-900">{workout.name}</h2>
-            <p className="text-sm text-gray-600">
+        <div className="flex items-center justify-between p-5 border-b border-gray-200">
+          <div className="flex-1 text-center">
+            <h2 className="text-xl font-bold text-gray-900">{workout.name}</h2>
+            <p className="text-sm text-gray-500">
               Exercício {currentExerciseIndex + 1} de {totalExercises}
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <XMarkIcon className="w-6 h-6 text-gray-600" />
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
+            <XMarkIcon className="w-6 h-6 text-gray-500" />
           </button>
         </div>
 
         {/* Progress */}
-        <div className="p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">Progresso do Treino</span>
-            <span className="text-sm text-gray-600">{Math.round(progress)}%</span>
+        <div className="px-5 mt-4">
+          <div className="flex justify-between text-sm text-gray-700 mb-1">
+            <span>Progresso do Treino</span>
+            <span>{Math.round(progress)}%</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              className="bg-yellow-500 h-2 rounded-full transition-all duration-300"
+          <div className="w-full bg-gray-200 h-2 rounded-full">
+            <div
+              className="bg-yellow-500 h-2 rounded-full transition-all"
               style={{ width: `${progress}%` }}
             />
           </div>
         </div>
 
-        {/* Exercise Video/Image */}
-        <div className="px-4">
-          <div className="bg-gray-100 rounded-xl aspect-video flex items-center justify-center mb-4">
-            <div className="text-center">
-              <PlayIcon className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-              <p className="text-sm text-gray-600">Vídeo do exercício</p>
-              <p className="text-xs text-gray-500">{currentExercise.name}</p>
-            </div>
+        {/* Imagem/Preview */}
+        <div className="p-5">
+          <div className="aspect-video bg-gray-100 rounded-xl flex flex-col items-center justify-center text-gray-500">
+            <PlayIcon className="w-12 h-12 mb-2" />
+            <p className="text-sm">{currentExercise.name}</p>
           </div>
-        </div>
 
-        {/* Exercise Info */}
-        <div className="px-4 mb-4">
-          <h3 className="text-xl font-bold text-gray-900 mb-2">
-            {currentExercise.name}
-          </h3>
-          <div className="grid grid-cols-3 gap-4 text-center">
+          {/* Informações do exercício logo abaixo do vídeo */}
+          <div className="px-5 mb-6 grid grid-cols-3 text-center text-gray-800">
             <div>
-              <p className="text-2xl font-bold text-gray-900">{currentExercise.sets}</p>
-              <p className="text-sm text-gray-600">Séries</p>
+              <p className="text-lg font-semibold">
+                {isHIIT ? 'N/A' : currentExercise.sets ?? 'N/A'}
+              </p>
+              <p className="text-xs text-gray-500">Séries</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{currentExercise.reps}</p>
-              <p className="text-sm text-gray-600">Repetições</p>
+              <p className="text-lg font-semibold">{currentExercise.reps ?? 'N/A'}</p>
+              <p className="text-xs text-gray-500">Repetições</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{currentExercise.rest}s</p>
-              <p className="text-sm text-gray-600">Descanso</p>
+              <p className="text-lg font-semibold">
+                {currentExercise.rest ? `${currentExercise.rest}s` : 'N/A'}
+              </p>
+              <p className="text-xs text-gray-500">Descanso</p>
             </div>
           </div>
         </div>
 
         {/* Timer */}
         {(timeRemaining > 0 || isResting) && (
-          <div className="px-4 mb-4">
-            <Card className="text-center">
+          <div className="px-5 mb-4">
+            <Card className="text-center py-6">
               <div className="flex items-center justify-center mb-4">
-                <ProgressRing 
-                  progress={isResting ? ((currentExercise.rest - timeRemaining) / currentExercise.rest) * 100 : 0}
+                <ProgressRing
+                  progress={
+                    isResting
+                      ? ((currentExercise.rest - timeRemaining) / currentExercise.rest) * 100
+                      : ((activeTime - timeRemaining) / activeTime) * 100
+                  }
                   size={100}
                   strokeWidth={8}
-                  color={isResting ? "#ef4444" : "#10b981"}
+                  color={isResting ? '#ef4444' : '#10b981'}
                 >
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-gray-900">
-                      {formatTime(timeRemaining)}
-                    </p>
-                    <p className="text-xs text-gray-600">
-                      {isResting ? 'Descanso' : 'Tempo'}
-                    </p>
+                    <p className="text-2xl font-bold text-gray-900">{formatTime(timeRemaining)}</p>
+                    <p className="text-xs text-gray-500">{isResting ? 'Descanso' : 'Tempo'}</p>
                   </div>
                 </ProgressRing>
               </div>
               <Button
-                variant={isPlaying ? "ghost" : "primary"}
+                variant={isPlaying ? 'ghost' : 'primary'}
                 onClick={toggleTimer}
                 icon={isPlaying ? PauseIcon : PlayIcon}
                 className="w-full"
@@ -203,55 +214,66 @@ const WorkoutPlayer = ({ workout, onClose, onComplete }) => {
           </div>
         )}
 
-        {/* Sets */}
-        <div className="px-4 mb-4">
-          <h4 className="font-semibold text-gray-900 mb-3">
-            Série {currentSet} de {currentExercise.sets}
-          </h4>
-          <div className="flex gap-2 mb-4">
-            {Array.from({ length: currentExercise.sets }, (_, index) => {
-              const setNumber = index + 1;
-              const isCompleted = isSetCompleted(setNumber);
-              const isCurrent = setNumber === currentSet;
-              
-              return (
-                <div
-                  key={setNumber}
-                  className={`flex-1 h-3 rounded-full transition-all duration-200 ${
-                    isCompleted 
-                      ? 'bg-green-500' 
-                      : isCurrent 
-                        ? 'bg-yellow-500' 
-                        : 'bg-gray-200'
-                  }`}
-                />
-              );
-            })}
-          </div>
-          
-          {!isResting && (
-            <div className="space-y-2">
-              <Button
-                variant="secondary"
-                onClick={() => startTimer(currentExercise.rest)}
-                className="w-full"
-              >
-                Iniciar Descanso ({currentExercise.rest}s)
-              </Button>
-              <Button
-                variant="primary"
-                onClick={completeSet}
-                icon={CheckCircleIcon}
-                className="w-full"
-              >
-                Série Concluída
-              </Button>
+        {/* Sets (mostrar só para ABC, para HIIT ocultar) */}
+        {!isHIIT && (
+          <div className="px-5 mb-4">
+            <h4 className="font-semibold text-gray-900 mb-2">
+              Série {currentSet} de {currentExercise.sets}
+            </h4>
+            <div className="flex gap-2 mb-4">
+              {Array.from({ length: currentExercise.sets }, (_, index) => {
+                const setNumber = index + 1;
+                const completed = isSetCompleted(setNumber);
+                const isCurrent = setNumber === currentSet;
+                return (
+                  <div
+                    key={setNumber}
+                    className={`flex-1 h-3 rounded-full ${
+                      completed ? 'bg-green-500' : isCurrent ? 'bg-yellow-500' : 'bg-gray-200'
+                    }`}
+                  />
+                );
+              })}
             </div>
-          )}
-        </div>
 
-        {/* Navigation */}
-        <div className="flex gap-2 p-4 border-t">
+            {!isResting && (
+              <div className="space-y-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => startTimer(currentExercise.rest)}
+                  className="bg-yellow-500 hover:bg-yellow-400 active:bg-yellow-600 text-gray-900 font-semibold rounded-lg px-4 py-3 text-base w-full transition-all duration-200 flex items-center justify-center gap-2"
+                >
+                  Iniciar Descanso ({currentExercise.rest}s)
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={completeSet}
+                  icon={CheckCircleIcon}
+                  className="w-full"
+                >
+                  Série Concluída
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Para HIIT, mostrar botão para avançar exercício (já que não tem sets) */}
+        {isHIIT && !isResting && timeRemaining === 0 && (
+          <div className="px-5 mb-4">
+            <Button
+              variant="primary"
+              onClick={completeSet}
+              icon={CheckCircleIcon}
+              className="w-full"
+            >
+              Concluir Exercício
+            </Button>
+          </div>
+        )}
+
+        {/* Navegação */}
+        <div className="flex gap-2 p-5 border-t border-gray-200">
           <Button
             variant="ghost"
             onClick={previousExercise}
@@ -276,4 +298,3 @@ const WorkoutPlayer = ({ workout, onClose, onComplete }) => {
 };
 
 export default WorkoutPlayer;
-

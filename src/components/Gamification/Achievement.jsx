@@ -5,8 +5,8 @@ import {
   StarIcon,
   XMarkIcon
 } from '@heroicons/react/24/outline';
-import Card from '../UI/Card';
-import Button from '../UI/Button';
+import { Card } from '../ui/card';
+import { Button } from '../ui/button';
 
 const Achievement = ({ achievement, onClose }) => {
   const [isVisible, setIsVisible] = useState(false);

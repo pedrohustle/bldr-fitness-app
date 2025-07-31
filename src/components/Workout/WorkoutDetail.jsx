@@ -1,24 +1,57 @@
 import React from 'react';
-import { 
-  ClockIcon, 
+import {
+  ClockIcon,
   FireIcon,
   PlayIcon,
+  CheckCircleIcon,
   XMarkIcon,
-  CheckCircleIcon
 } from '@heroicons/react/24/outline';
-import Card from '../UI/Card';
-import Button from '../UI/Button';
+import { Button } from '../ui/button';
+import { Card } from '../ui/card';
 
-const WorkoutDetail = ({ workout, onClose, onStart, isCompleted }) => {
-  const totalCalories = workout.exercises.length * 50; // Estimativa simples
+const WorkoutDetail = ({
+  workout,
+  onClose,
+  inline,
+  isCompleted = false,
+  onStart = () => console.log('Iniciar treino'),
+  totalCalories = workout?.exercises?.length * 5 || 0,
+}) => {
+  if (!workout) return null;
+
+  const content = (
+    <div className="bg-white rounded-lg p-6 shadow-lg max-w-3xl mx-auto">
+      <h2 className="text-2xl font-bold mb-4 text-center">{workout.name}</h2>
+      {workout.description && (
+        <p className="mb-6 text-center text-gray-600">{workout.description}</p>
+      )}
+      <ul className="space-y-4">
+        {workout.exercises.map((ex, idx) => (
+          <li key={ex.id} className="border p-4 rounded-lg bg-gray-50">
+            <h3 className="font-semibold text-lg">
+              {idx + 1}. {ex.name}
+            </h3>
+            <p className="text-gray-700">
+              Séries: {ex.sets} x Repetições: {ex.reps}
+            </p>
+            <p className="text-gray-700">Descanso: {ex.rest}s</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+
+  if (inline) {
+    return content;
+  }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/60 bg-opacity-50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b">
-          <div className="flex-1">
-            <h2 className="text-xl font-bold text-gray-900">{workout.name}</h2>
+          <div className="flex-1 flex flex-col items-center">
+            <h2 className="text-xl font-bold text-gray-900 text-center">{workout.name}</h2>
             <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
               <div className="flex items-center gap-1">
                 <ClockIcon className="w-4 h-4" />
@@ -38,30 +71,11 @@ const WorkoutDetail = ({ workout, onClose, onStart, isCompleted }) => {
           </button>
         </div>
 
-        {/* Tags */}
-        <div className="p-4 border-b">
-          <div className="flex flex-wrap gap-2">
-            <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full">
-              {workout.level}
-            </span>
-            <span className="px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full">
-              {workout.objective}
-            </span>
-            <span className="px-3 py-1 bg-purple-100 text-purple-800 text-sm rounded-full">
-              {workout.type}
-            </span>
-            <span className="px-3 py-1 bg-orange-100 text-orange-800 text-sm rounded-full">
-              {workout.biotipo}
-            </span>
-          </div>
-        </div>
-
         {/* Exercises List */}
         <div className="p-4">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             Exercícios ({workout.exercises.length})
           </h3>
-          
           <div className="space-y-3">
             {workout.exercises.map((exercise, index) => (
               <Card key={exercise.id} className="p-3">
@@ -71,7 +85,6 @@ const WorkoutDetail = ({ workout, onClose, onStart, isCompleted }) => {
                       {index + 1}
                     </span>
                   </div>
-                  
                   <div className="flex-1">
                     <h4 className="font-semibold text-gray-900 mb-1">
                       {exercise.name}
@@ -91,19 +104,15 @@ const WorkoutDetail = ({ workout, onClose, onStart, isCompleted }) => {
         {/* Action Buttons */}
         <div className="p-4 border-t space-y-2">
           <Button
-            variant={isCompleted ? "ghost" : "primary"}
+            variant={isCompleted ? 'ghost' : 'primary'}
             onClick={onStart}
             icon={isCompleted ? CheckCircleIcon : PlayIcon}
             className="w-full"
           >
             {isCompleted ? 'Treino Concluído' : 'Iniciar Treino'}
           </Button>
-          
-          <Button
-            variant="outline"
-            onClick={onClose}
-            className="w-full"
-          >
+
+          <Button variant="outline" onClick={onClose} className="w-full">
             Fechar
           </Button>
         </div>
@@ -124,4 +133,3 @@ const WorkoutDetail = ({ workout, onClose, onStart, isCompleted }) => {
 };
 
 export default WorkoutDetail;
-

@@ -1,257 +1,283 @@
-import React, { useState } from 'react';
+// ... imports (sem alteração)
+import { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { doc, deleteDoc } from 'firebase/firestore';
+import { auth, db } from '../services/firebase';
+import { Settings, History, LogOut, Pencil } from 'lucide-react';
+import {
+  Card, CardContent, CardHeader, CardTitle
+} from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
+import { useAuth } from '../contexts/AuthContext';
+import EditProfileModal from '../components/EditProfileModal';
+import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import { 
-  UserIcon, 
-  CogIcon, 
-  TrophyIcon,
-  FireIcon,
-  CalendarIcon,
-  ScaleIcon,
-  CameraIcon,
-  ArrowRightOnRectangleIcon
-} from '@heroicons/react/24/outline';
-import Card from '../components/UI/Card';
-import Button from '../components/UI/Button';
-import ProgressRing from '../components/UI/ProgressRing';
-import { AchievementsList } from '../components/Gamification/Achievement';
-import { achievements, getUserLevel, getXPToNextLevel } from '../data/achievements';
+  deleteUser, 
+  signOut, 
+  EmailAuthProvider, 
+  reauthenticateWithCredential 
+} from 'firebase/auth';
+
 
 const Profile = () => {
-  const [activeTab, setActiveTab] = useState('profile');
-  const [isEditing, setIsEditing] = useState(false);
-  
-  // Dados de exemplo para demonstração
-  const userProfile = {
-    displayName: 'João Silva',
-    email: 'joao@exemplo.com',
-    age: 28,
-    weight: 75.5,
-    height: 175,
-    fitnessGoal: 'hipertrofia',
-    activityLevel: 'moderado',
-    biotipo: 'mesomorfo',
-    workoutsCompleted: 15,
-    currentStreak: 5,
-    totalXP: 1250,
-    unlockedAchievements: ['first_workout', 'workouts_10']
+  const { userProfile, logout, setUserProfile } = useAuth();
+  const navigate = useNavigate(); 
+  const location = useLocation();
+
+  const [user, setUser] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showAchievements] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+
+  const fromSettings = new URLSearchParams(location.search).get('from') === 'settings';
+
+  useEffect(() => {
+    if (userProfile) {
+      setUser(userProfile);
+    }
+  }, [userProfile]);
+
+  useEffect(() => {
+    if (fromSettings) {
+      document.body.style.overflow = 'auto';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [fromSettings]);
+
+  const handleProfileUpdated = (updatedUser) => {
+    setUser(updatedUser);         
+    setUserProfile(updatedUser);  
   };
 
-  const [editData, setEditData] = useState({
-    displayName: userProfile?.displayName || '',
-    age: userProfile?.age || '',
-    weight: userProfile?.weight || '',
-    height: userProfile?.height || '',
-    fitnessGoal: userProfile?.fitnessGoal || '',
-    activityLevel: userProfile?.activityLevel || '',
-    biotipo: userProfile?.biotipo || ''
-  });
+  // Aqui usamos auth e db importados (REMOVIDAS as linhas que criavam instâncias locais)
 
-  const userLevel = getUserLevel(userProfile?.totalXP || 0);
-  const xpToNext = getXPToNextLevel(userProfile?.totalXP || 0);
-  const levelProgress = userLevel ? ((userProfile?.totalXP || 0) - userLevel.minXP) / (userLevel.maxXP - userLevel.minXP) * 100 : 0;
+  const handleDeleteAccount = async (password) => {
+  if (!auth.currentUser || !password) return;
 
-  const handleSaveProfile = async () => {
-    // Simular salvamento
-    setIsEditing(false);
-  };
+  const email = auth.currentUser.email;
+  const credential = EmailAuthProvider.credential(email, password);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setEditData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
+  try {
+    await reauthenticateWithCredential(auth.currentUser, credential);
+    console.log('🔐 Reautenticado');
 
-  const TabButton = ({ id, label, isActive }) => (
-    <button
-      onClick={() => setActiveTab(id)}
-      className={`flex-1 py-3 px-4 text-sm font-medium rounded-lg transition-all duration-200 ${
-        isActive
-          ? 'bg-yellow-500 text-gray-900'
-          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-      }`}
-    >
-      {label}
-    </button>
-  );
+    await deleteDoc(doc(db, 'users', auth.currentUser.uid));
+    console.log('Documento do Firestore excluído');
+    await deleteUser(auth.currentUser);
 
-  const renderProfileTab = () => (
-    <div className="space-y-6">
-      {/* User Info */}
-      <Card>
-        <div className="flex items-center gap-4 mb-4">
-          <div className="w-16 h-16 bg-yellow-500 rounded-full flex items-center justify-center">
-            <UserIcon className="w-8 h-8 text-gray-900" />
-          </div>
-          <div className="flex-1">
-            <h2 className="text-xl font-bold text-gray-900">
-              {userProfile?.displayName || 'Usuário'}
-            </h2>
-            <p className="text-gray-600">{userProfile?.email}</p>
-            <div className="flex items-center gap-2 mt-1">
-              <TrophyIcon className="w-4 h-4 text-yellow-500" />
-              <span className="text-sm font-medium text-yellow-600">
-                {userLevel?.title} - Nível {userLevel?.level}
-              </span>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsEditing(!isEditing)}
-            icon={CogIcon}
-          >
-            {isEditing ? 'Cancelar' : 'Editar'}
-          </Button>
-        </div>
+    console.log('✅ Conta excluída');
+    navigate('/');
+  } catch (error) {
+    console.error('❌ Erro ao excluir conta:', error);
+    if (error.code === 'auth/wrong-password') {
+      alert('Senha incorreta. Tente novamente.');
+    } else {
+      alert('Erro ao excluir conta. Faça login novamente.');
+      await signOut(auth);
+      navigate('/');
+    }
+  } finally {
+    setShowDeleteModal(false);
+  }
+};
 
-        {/* Level Progress */}
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">Progresso do Nível</span>
-            <span className="text-sm text-gray-600">
-              {xpToNext > 0 ? `${xpToNext} XP para próximo nível` : 'Nível máximo!'}
-            </span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-3">
-            <div 
-              className="bg-gradient-to-r from-yellow-400 to-orange-500 h-3 rounded-full transition-all duration-300"
-              style={{ width: `${Math.min(levelProgress, 100)}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <p className="text-2xl font-bold text-gray-900">{userProfile?.workoutsCompleted || 0}</p>
-            <p className="text-sm text-gray-600">Treinos</p>
-          </div>
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <p className="text-2xl font-bold text-gray-900">{userProfile?.currentStreak || 0}</p>
-            <p className="text-sm text-gray-600">Sequência</p>
-          </div>
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <p className="text-2xl font-bold text-gray-900">{userProfile?.totalXP || 0}</p>
-            <p className="text-sm text-gray-600">XP Total</p>
-          </div>
-        </div>
-      </Card>
-
-      {/* Profile Details */}
-      <Card>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Informações Pessoais</h3>
-        
-        {isEditing ? (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Nome</label>
-              <input
-                type="text"
-                name="displayName"
-                value={editData.displayName}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-              />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Idade</label>
-                <input
-                  type="number"
-                  name="age"
-                  value={editData.age}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Peso (kg)</label>
-                <input
-                  type="number"
-                  name="weight"
-                  value={editData.weight}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                  step="0.1"
-                />
-              </div>
-            </div>
-
-            <Button
-              variant="primary"
-              onClick={handleSaveProfile}
-              className="w-full"
-            >
-              Salvar Alterações
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between py-2 border-b border-gray-100">
-              <span className="text-gray-600">Idade</span>
-              <span className="font-medium">{userProfile?.age || 'Não informado'}</span>
-            </div>
-            <div className="flex items-center justify-between py-2 border-b border-gray-100">
-              <span className="text-gray-600">Peso</span>
-              <span className="font-medium">{userProfile?.weight ? `${userProfile.weight} kg` : 'Não informado'}</span>
-            </div>
-            <div className="flex items-center justify-between py-2 border-b border-gray-100">
-              <span className="text-gray-600">Altura</span>
-              <span className="font-medium">{userProfile?.height ? `${userProfile.height} cm` : 'Não informado'}</span>
-            </div>
-            <div className="flex items-center justify-between py-2 border-b border-gray-100">
-              <span className="text-gray-600">Objetivo</span>
-              <span className="font-medium">{userProfile?.fitnessGoal || 'Não definido'}</span>
-            </div>
-            <div className="flex items-center justify-between py-2">
-              <span className="text-gray-600">Biotipo</span>
-              <span className="font-medium">{userProfile?.biotipo || 'Não definido'}</span>
-            </div>
-          </div>
-        )}
-      </Card>
-    </div>
-  );
-
-  const renderAchievementsTab = () => (
-    <div className="space-y-4">
-      <div className="text-center mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Suas Conquistas</h3>
-        <p className="text-gray-600">
-          {userProfile?.unlockedAchievements?.length || 0} de {achievements.length} desbloqueadas
-        </p>
+  if (!user) {
+    return (
+      <div className="p-4">
+        <p className="text-center text-muted-foreground font-montserrat">Carregando perfil...</p>
       </div>
-      
-      <AchievementsList 
-        achievements={achievements} 
-        userProgress={userProfile || {}} 
-      />
-    </div>
-  );
+    );
+  }
+
+  const stats = [
+    { label: 'Treinos Concluídos', value: user.workoutsCompleted || 0 },
+    { label: 'Dias Consecutivos', value: user.currentStreak || 0 },
+  ];
+
+  const achievements = user.unlockedAchievements || [];
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white p-6 rounded-b-3xl">
-        <h1 className="text-2xl font-bold">Perfil</h1>
-        <p className="text-gray-300">Gerencie sua conta e progresso</p>
-      </div>
-
-      <div className="p-4 space-y-4">
-        {/* Tabs */}
-        <div className="flex gap-2">
-          <TabButton id="profile" label="Perfil" isActive={activeTab === 'profile'} />
-          <TabButton id="achievements" label="Conquistas" isActive={activeTab === 'achievements'} />
+    <div className="p-4 pb-20 space-y-6">
+      <div className="bg-black text-yellow-400 p-6 rounded-b-3xl">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold">PERFIL</h1>
+          <p className="text-gray-300">Sua jornada fitness</p>
         </div>
-
-        {/* Content */}
-        {activeTab === 'profile' ? renderProfileTab() : renderAchievementsTab()}
       </div>
+
+      {/* Avatar e nome */}
+      <Card className="card-glass">
+        <CardContent className="p-6">
+          <div className="flex items-center space-x-4 mb-4">
+            <Avatar className="w-16 h-16">
+              <AvatarImage src={user.photoURL || ''} />
+              <AvatarFallback className="bg-primary text-primary-foreground text-xl font-montserrat-bold">
+                {user.displayName?.split(' ').map((n) => n[0]).join('') || 'U'}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="text-xl font-montserrat-bold text-foreground">{user.displayName || 'Usuário'}</h2>
+                {user.isPremium && (
+                  <Badge className="bg-primary text-primary-foreground">
+                    Premium
+                  </Badge>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground font-montserrat">{user.email}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 text-center">
+            <div>
+              <p className="text-2xl font-montserrat-bold text-primary">{user.weight || '-'}kg</p>
+              <p className="text-sm text-muted-foreground font-montserrat">Peso</p>
+            </div>
+            <div>
+              <p className="text-2xl font-montserrat-bold text-primary">{user.height || '-'}cm</p>
+              <p className="text-sm text-muted-foreground font-montserrat">Altura</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Upgrade para Premium */}
+      {!user.isPremium && (
+        <div className="text-center">
+          <Button
+            className="primary"
+            onClick={() => navigate('/checkout')}
+          >
+            Upgrade para Premium
+          </Button>
+        </div>
+      )}
+
+      {/* Informações */}
+      <Card className="card-glass">
+        <CardHeader className="flex justify-between items-center">
+          <CardTitle className="font-montserrat text-lg text-center w-full">Informações</CardTitle>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => setIsModalOpen(true)} 
+            aria-label="Editar informações do perfil"
+            className="hover:bg-yellow-500 hover:text-black transition"
+          >
+            <Pencil size={16} />
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex justify-between"><span className="font-montserrat text-muted-foreground">Biotipo</span><span className="font-montserrat-bold text-foreground">{user.biotipo || '-'}</span></div>
+          <div className="flex justify-between"><span className="font-montserrat text-muted-foreground">Objetivo</span><span className="font-montserrat-bold text-foreground">{user.fitnessGoal || '-'}</span></div>
+          <div className="flex justify-between"><span className="font-montserrat text-muted-foreground">Frequência semanal</span><span className="font-montserrat-bold text-foreground">{user.frequency ? `${user.frequency} dia${user.frequency > 1 ? 's' : ''}` : '-'}</span></div>
+          <div className="flex justify-between"><span className="font-montserrat text-muted-foreground">Nível</span><span className="font-montserrat-bold text-foreground">{user.activityLevel || '-'}</span></div>
+          <div className="flex justify-between"><span className="font-montserrat text-muted-foreground">Idade</span><span className="font-montserrat-bold text-foreground">{user.age || '-'} anos</span></div>
+          <div className="flex justify-between"><span className="font-montserrat text-muted-foreground">Meta de Peso</span><span className="font-montserrat-bold text-foreground">{user.weightGoal ? `${user.weightGoal}kg` : '-'}</span></div>
+        </CardContent>
+      </Card>
+
+      {/* Estatísticas */}
+      <Card className="card-glass">
+        <CardHeader>
+          <CardTitle className="font-montserrat text-lg text-center">Estatísticas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4">
+            {stats.map((stat, index) => (
+              <div key={index} className="text-center">
+                <p className="text-2xl font-montserrat-bold text-primary">{stat.value}</p>
+                <p className="text-sm text-muted-foreground font-montserrat">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Conquistas */}
+      {showAchievements && (
+        <Card className="card-glass">
+          <CardHeader>
+            <CardTitle className="font-montserrat text-lg text-center">Conquistas</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {achievements.length === 0 ? (
+              <p className="text-sm text-muted-foreground font-montserrat text-center">Nenhuma conquista desbloqueada ainda.</p>
+            ) : achievements.map((achievement, index) => (
+              <div key={index} className="flex items-center space-x-3 p-3 rounded-lg bg-muted/20">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center bg-muted">
+                  <div className="w-3 h-3 rounded-full bg-muted-foreground" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-montserrat-bold text-foreground">{achievement.title}</p>
+                  <p className="text-sm text-muted-foreground font-montserrat">{achievement.description}</p>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Botões inferiores */}
+      <Card className="card-glass">
+        <CardContent className="p-4 space-y-2">
+          <Button
+            variant="ghost"
+            className="w-full justify-start font-montserrat"
+            onClick={() => navigate('/settings')}
+          >
+            <Settings className="mr-3" size={18} />
+            Configurações
+          </Button>
+
+          <Button
+            variant="ghost"
+            className="w-full justify-start font-montserrat"
+            onClick={() => navigate('/history')}
+          >
+            <History className="mr-3" size={18} />
+            Histórico
+          </Button>
+
+          <Button
+            variant="ghost"
+            className="w-full justify-start font-montserrat text-destructive hover:text-destructive"
+            onClick={logout}
+          >
+            <LogOut className="mr-3" size={18} />
+            Sair
+          </Button>
+
+          {/* Botão para excluir conta */}
+          <Button
+            variant="destructive"
+            className="w-full font-montserrat mt-2"
+            onClick={() => setShowDeleteModal(true)}
+          >
+            Excluir Conta
+          </Button>
+        </CardContent>
+      </Card>
+
+      <EditProfileModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        userProfile={user}
+        onProfileUpdated={handleProfileUpdated} 
+      />
+
+      <ConfirmDeleteModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleDeleteAccount}
+      />
     </div>
   );
 };
 
 export default Profile;
-
